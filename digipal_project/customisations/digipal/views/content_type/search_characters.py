@@ -160,6 +160,19 @@ class SearchCharacters(SearchContentType):
             {'label': 'Gender', 'key': 'gender', 'is_sortable': True}
         ]
 
+    #Return time marker on annotations to allow data visualization
+    def get_temporal_marker(self, soup, span, text_len, tcx):
+        #An unique string is used to prevent problems due to tag sharing the same content (ex : a name), it is cleaned after each tag has been temporally marked
+        old_tag_string = span.string
+        span.string = "UNIQUE_FLAG"
+        position = str(soup).find("UNIQUE_FLAG")
+        if old_tag_string is not None:
+            span.string = old_tag_string
+        else:
+            print("Erreur, comportement imprevu, probablement erreur dans le texte : " + str(tcx))
+            span.string = ""
+        return round(float(position)/float(text_len), 2) * 100
+
     def set_record_view_context(self, context, request):
         super(SearchCharacters, self).set_record_view_context(context, request)
         character = Bonhum_StoryCharacter.objects.get(id=context['id'])
@@ -233,16 +246,20 @@ class SearchCharacters(SearchContentType):
                                                    + str(character.id) + ur'\b).*?#'
                                                    + str(character.id) + ur'\b.*?') })
 
+            text_len = len(tcx.content)
+
             # For each <persName>, <placeName> and <date> annotation
             spans = persname_spans + place_spans + date_spans
             for span in spans:
+                position_percentage = self.get_temporal_marker(soup, span, text_len, tcx)
+
                 url = tcx.get_absolute_url()
                 url += '?' if ('?' not in url) else '&'
                 url += 'annotation=%s' % span.attrs.get('data-dpt-id')
                 tag = span.attrs.get('data-dpt')
                 code = span.attrs.get('data-dpt-ana') if tag != 'persName' else 'person_name'
                 content = span.get_text()
-                data = { 'content': content, 'url': url }
+                data = { 'content': content, 'url': url, 'position_percentage' : position_percentage}
                 # If the annotation is <placeName>, we extract the first id
                 # in the ref attribute and get the matching place in database
                 if tag == 'placeName':
@@ -261,6 +278,8 @@ class SearchCharacters(SearchContentType):
             # For each <rs> annotation (with the character as subject or object)
             spans = rs_subject_spans + rs_object_spans
             for span in spans:
+                position_percentage = self.get_temporal_marker(soup, span, text_len, tcx)
+                
                 url = tcx.get_absolute_url()
                 url += '?' if ('?' not in url) else '&'
                 url += 'annotation=%s' % span.attrs.get('data-dpt-id')
@@ -310,7 +329,8 @@ class SearchCharacters(SearchContentType):
                     # if the character is object, we add it only if the code is for a relation
                     if not is_object or code[:12] == '#PROS-EV-REL':
                         data = { 'content': content, 'url': url,
-                                 'in_relation_with': in_relation_with }
+                                 'in_relation_with': in_relation_with,
+                                 'position_percentage' : position_percentage }
                         if code in ana_types:
                             data['level'] = level
                         for category in characteristics:
@@ -323,7 +343,7 @@ class SearchCharacters(SearchContentType):
                         if code in social_levels.keys() and len(ana_types) == 0:
                             characteristics[8]['codes']['#PROS-EV-REL-TY-SOC']['annotations'].setdefault(tcx, []).append({
                                 'content': content, 'url': url, 'level': level,
-                                'in_relation_with': in_relation_with
+                                'in_relation_with': in_relation_with, 'position_percentage' : position_percentage
                             })
                             characteristics[8]['codes']['#PROS-EV-REL-TY-SOC']['nb'] += 1
                             characteristics[8]['nb'] += 1
