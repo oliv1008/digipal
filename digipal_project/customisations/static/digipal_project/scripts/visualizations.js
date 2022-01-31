@@ -80,12 +80,67 @@ function draw() {
     animId = window.requestAnimationFrame(draw);
 }
 
-function onButtonSelected(button) {
-    if (button.classList.contains("active")) {
-        button.classList.remove("active");
-    } else {
-        button.classList.add("active");
+let textSelected = undefined;
+let annotationSelected = undefined;
+
+function onTextSelected(button) {
+    let activeButtonElt = document.querySelector("button[data-type=text].active");
+    if (activeButtonElt) {
+        activeButtonElt.classList.remove("active");
     }
 
-    console.log(data);
+    button.classList.add("active");
+    textSelected = button.dataset.title;
+    extractData();
+}
+
+function onAnnotationSelected(button) {
+    let activeButtonElt = document.querySelector("button[data-type=annotation].active");
+    if (activeButtonElt) {
+        activeButtonElt.classList.remove("active");
+    }
+
+    button.classList.add("active");
+    annotationSelected = button.dataset.code;
+    extractData();
+}
+
+function extractData() {
+    let data = [];
+
+    if (textSelected && annotationSelected) {
+        switch (annotationSelected) {
+            case "PROS-EV-PSY":
+                // We're iterating through every annotations_codes,
+                characteristics_as_json.forEach(characteristics => {
+                    for (const [keyCode, valueCode] of Object.entries(characteristics['codes'])) {
+                        // When we reach the annotations regarding the psychological status
+                        if (keyCode.includes("PROS-EV-PSY")) {
+                            for (const [keyAnnotation, valueAnnotation] of Object.entries(valueCode['annotations'])) {
+                                // In the previously selected text
+                                if (keyAnnotation.trim() === textSelected.trim()) {
+                                    valueAnnotation.forEach(valueAnnotationElement => {
+                                        // We add every annotations and its position in that text to an array of shape [[annotation_code, position]]
+                                        data.push([keyCode, valueAnnotationElement['position_percentage']]) 
+                                    }); 
+                                }
+                            }
+                        }
+                    }
+                });
+                // We then sort the annotations in ascending order of their appearance in the text
+                data.sort((a, b) => a[1] - b[1]);
+                break;
+        }
+    }
+
+    if (data.length > 0) {
+        drawResult(data);
+    }
+}
+
+function drawResult(data) {
+    let resultElt = document.getElementById("graph");
+
+    resultElt.innerText = data;
 }

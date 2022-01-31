@@ -203,7 +203,7 @@
                         
                             <ul class="list-group">
                                 {% for text_content_xml in text_content_xmls %}
-                                    <button type="button" class="list-group-item" onclick="onButtonSelected(this)">
+                                    <button type="button" class="list-group-item" onclick="onTextSelected(this)" data-type="text" data-title="{{text_content_xml.text_content.text.title}}">
                                         {{ text_content_xml.text_content.text.title }} ({{ text_content_xml.text_content.type|lower }})
                                     </button>
                                 {% endfor %}
@@ -215,17 +215,17 @@
                             <div class="panel-heading">Sélectionner une caractéristique</div>
                         
                             <ul class="list-group">
-                                <button type="button" class="list-group-item" onclick="onButtonSelected(this)">Réseau</button>
-                                <button type="button" class="list-group-item" onclick="onButtonSelected(this)">Psychologie</button>
+                                <button type="button" class="list-group-item" onclick="onAnnotationSelected(this)" data-type="annotation" data-code="PROS-EV-REL">Réseau</button>
+                                <button type="button" class="list-group-item" onclick="onAnnotationSelected(this)" data-type="annotation" data-code="PROS-EV-PSY">Psychologie</button>
                             </ul>
                         </div>
                     </div>
                 </div>
+                <div id="graph"></div>
             </div>            
         {% else %}
             {% include "digipal/empty_tab.html" with type="text" %}
         {% endif %}
-            {{characteristics_as_json}}
           <input type="button" id="buttonVisualization" value="Clic !" onclick="init()"></input>
           <canvas id="canvas" width="600" height="600"></canvas>
       </div>
@@ -250,6 +250,7 @@
   <script type="text/javascript">
       {% comment %} let data = JSON.parse("{{characteristics | escapejs}}") 
       console.log(data) {% endcomment %}
+      let characteristics_as_json = JSON.parse({{characteristics_as_json | json}})
   </script>
   <script src="{{STATIC_URL }}digipal_project/scripts/visualizations.js" type="text/javascript"></script>
 {% endblock %}

@@ -21,3 +21,5 @@ digipal_project/database/
 digipal_project/images/
 digipal_project/media/
 digipal_project/backups/*.sql
+
+.vscode/
