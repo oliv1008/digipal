@@ -30,6 +30,9 @@
       <a href="{{ character.get_absolute_url }}graphs/" data-address-bar="1" data-target="#graphs" data-toggle="tab">Images ({{ graphs.count }})</a>
     </li>
   {% endif %}
+  <li class="{% if tabid == "visualizations" %}active in{% endif %}">
+    <a href="{{ character.get_absolute_url }}visualizations/" data-address-bar="1" data-target="#visualizations" data-toggle="tab">Visualizations</a>
+  </li>
 {% endblock %}
 
 {% block details %}
@@ -190,6 +193,43 @@
         {% endif %}
       </div>
 
+      <div class='tab-pane fade {% if tabid == "visualizations" or url = "visualizations" %}active in{% endif %}' id='visualizations'>
+        {% if text_content_xmls.count %}
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">Sélectionner un ou plusieurs textes</div>
+                        
+                            <ul class="list-group">
+                                {% for text_content_xml in text_content_xmls %}
+                                    <button type="button" class="list-group-item" onclick="onButtonSelected(this)">
+                                        {{ text_content_xml.text_content.text.title }} ({{ text_content_xml.text_content.type|lower }})
+                                    </button>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="panel panel-default">
+                            <div class="panel-heading">Sélectionner une caractéristique</div>
+                        
+                            <ul class="list-group">
+                                <button type="button" class="list-group-item" onclick="onButtonSelected(this)">Réseau</button>
+                                <button type="button" class="list-group-item" onclick="onButtonSelected(this)">Psychologie</button>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>            
+        {% else %}
+            {% include "digipal/empty_tab.html" with type="text" %}
+        {% endif %}
+            {{characteristics_as_json}}
+          <input type="button" id="buttonVisualization" value="Clic !" onclick="init()"></input>
+          <canvas id="canvas" width="600" height="600"></canvas>
+      </div>
+
     </div>
   </div>
 {% endblock %}
@@ -206,4 +246,10 @@
                                                           .addClass('glyphicon-chevron-down');
     });
   </script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script type="text/javascript">
+      {% comment %} let data = JSON.parse("{{characteristics | escapejs}}") 
+      console.log(data) {% endcomment %}
+  </script>
+  <script src="{{STATIC_URL }}digipal_project/scripts/visualizations.js" type="text/javascript"></script>
 {% endblock %}

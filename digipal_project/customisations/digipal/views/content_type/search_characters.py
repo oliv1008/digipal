@@ -1,7 +1,9 @@
+from webbrowser import get
 from django import forms
 from digipal.views.content_type.search_content_type import SearchContentType, \
 get_form_field_from_queryset
 from digipal.models import Image, MediaPermission
+from django.forms.models import model_to_dict
 from digipal_text.models import TextContentXML
 from digipal_project.models import Bonhum_StoryCharacter, Bonhum_StoryPlace
 from django.forms.widgets import Select
@@ -11,6 +13,9 @@ from digipal.utils import is_staff
 from collections import OrderedDict
 from bs4 import BeautifulSoup
 import re
+import json
+import pdb
+import copy
 
 def get_TE_buttons_info(category_id):
     TE_buttons = settings.TEXT_EDITOR_OPTIONS_CUSTOM['buttons']['btnPerson']
@@ -160,7 +165,7 @@ class SearchCharacters(SearchContentType):
             {'label': 'Gender', 'key': 'gender', 'is_sortable': True}
         ]
 
-    #Return time marker on annotations to allow data visualization
+    #Return time marker relative to the total length of the text on annotations to allow data visualization
     def get_temporal_marker(self, soup, span, text_len, tcx):
         #An unique string is used to prevent problems due to tag sharing the same content (ex : a name), it is cleaned after each tag has been temporally marked
         old_tag_string = span.string
@@ -172,6 +177,31 @@ class SearchCharacters(SearchContentType):
             print("Erreur, comportement imprevu, probablement erreur dans le texte : " + str(tcx))
             span.string = ""
         return round(float(position)/float(text_len), 2) * 100
+
+    #Return the "characteristics" python dictionnary as a json dictionnary
+    #Some keys and values of the python dictionnary are non serializable python objects, the goal of this method is to manually serialize them to create 
+    #the json dictionnary
+    def get_characteristics_as_json(self, characteristics):
+            characteristics_as_json = copy.deepcopy(characteristics)
+            for characteristic in characteristics_as_json:
+                for code_key, code_value in characteristic['codes'].items():
+                    #Initially, the key of characteristics['codes']['annotations'].items is an 'TextContentXML' object, we're only keeping the title of the text 
+                    annotations_key_to_string = { k.text_content.text.title : v for k, v in code_value['annotations'].items()}
+                    if ("EV-ST" in code_key or "EV-REL" in code_key):
+                        for annotations_key_to_string_value in annotations_key_to_string.values():
+                            for annotation in annotations_key_to_string_value:
+                                if annotation['in_relation_with']:
+                                    #Initially, the value of characteristics['codes']['annotations'][Text]['in_relation_with'] is an 'BonhumStoryCharacter' object, we're manually serializing the object to a dictionnary of its value
+                                    annotation_value_to_string = [model_to_dict(x) for x in annotation['in_relation_with']]
+                                    annotation['in_relation_with'] = annotation_value_to_string
+                    if ('PROS-L' in code_key):
+                        for annotations_key_to_string_value in annotations_key_to_string.values():
+                            for annotation in annotations_key_to_string_value:
+                                #Initially, the value of characteristics['codes']['annotations'][Text]['place'] is an 'BonhumStoryPlace' object, we're manually serializing the object to a dictionnary of its value
+                                annotation['place'] = model_to_dict(annotation['place'])
+
+                    code_value['annotations'] = annotations_key_to_string
+            return json.dumps(characteristics_as_json)
 
     def set_record_view_context(self, context, request):
         super(SearchCharacters, self).set_record_view_context(context, request)
@@ -348,7 +378,10 @@ class SearchCharacters(SearchContentType):
                             characteristics[8]['codes']['#PROS-EV-REL-TY-SOC']['nb'] += 1
                             characteristics[8]['nb'] += 1
 
+        characteristics_as_json = self.get_characteristics_as_json(characteristics)
+
         context['characteristics'] = characteristics
+        context['characteristics_as_json'] = characteristics_as_json
 
     def get_model(self):
         return Bonhum_StoryCharacter
