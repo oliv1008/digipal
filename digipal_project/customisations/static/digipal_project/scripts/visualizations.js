@@ -86,7 +86,7 @@ let annotationSelected = undefined;
 function onTextSelected(button) {
     if (button.classList.contains("active")) {
         button.classList.remove("active");
-        let index = textsSelected.indexOf(button.dataset.title);
+        let index = textsSelected.indexOf(button.dataset.title.trim());
         textsSelected.splice(index, 1);
     }
     else {
@@ -108,6 +108,22 @@ function onAnnotationSelected(button) {
     extractData();
 }
 
+// function constructData() {
+//     if (textsSelected.length > 0 && annotationSelected) {
+//         switch (annotationSelected) {
+//             case "PROS-EV-PSY":
+//                 textsSelected.forEach( text => {
+//                     if (!data.has(text)) {
+//                         let dataAnnotation = [];
+//                         characteristics_as_json[3]["codes"]["#PROS-EV-PSY-BON"]["annotations"][text].forEach( value => {
+//                             dataAnnotation.push("#PROS-EV-PSY-BON", value["position_percentage"])
+//                         });
+//                     }
+//                 });
+//         }
+//     }
+// }
+
 function extractData() {
     let data = new Map;
 
@@ -121,7 +137,7 @@ function extractData() {
                         if (keyCode.includes("PROS-EV-PSY")) {
                             for (const [keyAnnotation, valueAnnotation] of Object.entries(valueCode['annotations'])) {
                                 // In one the previously selected texts
-                                if (textsSelected.includes(keyAnnotation.trim())) {
+                                if (textsSelected.includes(keyAnnotation)) {
                                     // We add every annotations and its position in that text to an array of shape (annotation_code, position)
                                     let dataAnnotation = [];
                                     valueAnnotation.forEach(valueAnnotationElement => {
@@ -159,6 +175,7 @@ function extractData() {
 }
 
 function drawResult(data) {
+    console.log(textsSelected);
     console.log(data);
     d3.select("#graph").selectChildren().remove();
     if (data.size > 0) {
@@ -171,9 +188,9 @@ function drawResult(data) {
 }
 
 function drawPsychologicalGraph(data) {
-    let width = 800;
+    let width = 1200;
     let height = 400;
-    let margin = ({top: 20, right: 30, bottom: 30, left: 100});
+    let margin = ({top: 20, right: 200, bottom: 30, left: 100});
     strokeLinecap = "round"; // stroke line cap of the line
     strokeLinejoin = "round"; // stroke line join of the line
     strokeWidth = 1.5; // stroke width of line, in pixels
@@ -200,7 +217,7 @@ function drawPsychologicalGraph(data) {
                   .attr("width", width)
                   .attr("height", height)
                   .attr("viewBox", [0, 0, width, height])
-                  .attr("style", "max-width: 100%; height: auto; height: intrinsic;");
+                  .attr("style", "max-width: 100%; height: auto;");
     // The X-axis
     svg.append("g")
         .attr("transform", `translate(0, ${height - margin.bottom})`)
@@ -219,11 +236,11 @@ function drawPsychologicalGraph(data) {
        .call(g => g.select(".domain").remove())
 
     // We draw each lines and set of points/annotations individually 
-    let iter = 8;
+    let iter = 0;
     data.forEach( (value, key, map) => {
-        color = d3.schemeSet1[iter]; // stroke color of line
-        if (iter > 0) {
-            iter = iter - 1;
+        color = d3.schemeSet1[8 - iter]; // stroke color of line, starting from the end because I prefer the colors
+        if (iter < 7) {
+            iter = iter + 1;
         }
         
         // Compute values.
@@ -246,6 +263,7 @@ function drawPsychologicalGraph(data) {
             .attr("stroke-linejoin", strokeLinejoin)
             .attr("stroke-opacity", strokeOpacity)
             .attr("d", line(I));
+
         // The dots corresponding to the annotations in the text
         svg.append("g")
                 .attr("stroke", "#000")
@@ -258,6 +276,24 @@ function drawPsychologicalGraph(data) {
                 .attr("fill", d => (d[0] === "#PROS-EV-PSY-BON") ? "blue" : "red")
                 .attr("r", 5);
 
+        // The legend
+        svg.append("line")
+           .attr("fill", "none")
+           .attr("stroke", color)
+           .attr("stroke-width", strokeWidth)
+           .attr("stroke-linecap", strokeLinecap)
+           .attr("stroke-linejoin", strokeLinejoin)
+           .attr("stroke-opacity", strokeOpacity)
+           .attr("x1", 1025)
+           .attr("x2", 1075)
+           .attr("y1", margin.top + iter * 50)
+           .attr("y2", margin.top + iter * 50)
+
+        svg.append("text")
+           .attr("x", 1085)
+           .attr("y", margin.top + 4 + iter * 50)
+           .attr("textLength", 100)
+           .text(key.slice(0, 10).concat("..."))
     }) 
         
     d3.select("#graph").node().append(svg.node());

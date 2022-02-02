@@ -186,7 +186,7 @@ class SearchCharacters(SearchContentType):
             for characteristic in characteristics_as_json:
                 for code_key, code_value in characteristic['codes'].items():
                     #Initially, the key of characteristics['codes']['annotations'].items is an 'TextContentXML' object, we're only keeping the title of the text 
-                    annotations_key_to_string = { k.text_content.text.title : v for k, v in code_value['annotations'].items()}
+                    annotations_key_to_string = { k.text_content.text.title.strip() : v for k, v in code_value['annotations'].items()}
                     if ("EV-ST" in code_key or "EV-REL" in code_key):
                         for annotations_key_to_string_value in annotations_key_to_string.values():
                             for annotation in annotations_key_to_string_value:
