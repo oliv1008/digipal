@@ -168,15 +168,45 @@ class SearchCharacters(SearchContentType):
     #Return time marker relative to the total length of the text on annotations to allow data visualization
     def get_temporal_marker(self, soup, span, text_len, tcx):
         #An unique string is used to prevent problems due to tag sharing the same content (ex : a name), it is cleaned after each tag has been temporally marked
-        old_tag_string = span.string
-        span.string = "UNIQUE_FLAG"
+        old_tag_contents = copy.copy(span.contents)
+        span.append("UNIQUE_FLAG")
         position = str(soup).find("UNIQUE_FLAG")
-        if old_tag_string is not None:
-            span.string = old_tag_string
+        if old_tag_contents is not None:
+            span.clear()
+            for content in old_tag_contents:
+                span.append(content)
         else:
             print("Erreur, comportement imprevu, probablement erreur dans le texte : " + str(tcx))
-            span.string = ""
+            span.clear()
         return round(float(position)/float(text_len), 2) * 100
+
+    # Return the first occurence of the author judgement inside or outside a span annotation, if none was found, return None
+    # Exemple : <rs ref="#character-23" ana="#PROS-EV-PHY">
+        #           <seg ana="#BOC-P">belle pucelle</seg>
+        #       </rs>
+        #   return "BOC-P"
+        # 
+        #     <seg ana="#BOC-P">
+        #         tres noble et
+        #         <rs ref="#character-25" ana="#PROS-EV-PHY">belle</rs>
+        #     </seg>
+        #   return "BOC-P"
+
+    def get_author_judgement(self, span):
+        for content in span.contents:
+            author_judgement = re.findall("#BOC-[PAN]|#BOC-IRO|#BOC-NEU", content.encode("utf-8"))
+            if (author_judgement):
+                return author_judgement[0]
+        
+        direct_parent = list(content.parents)[1]
+        if (direct_parent.name == "span"):
+            print("direct_parent : ", direct_parent.encode("utf-8"))
+            author_judgement = re.findall("#BOC-[PAN]|#BOC-IRO|#BOC-NEU", direct_parent.encode("utf-8"))
+            if (author_judgement):
+                print("author_judgement : ", author_judgement)
+                return author_judgement[0]
+        
+        return None
 
     #Return the "characteristics" python dictionnary as a json dictionnary
     #Some keys and values of the python dictionnary are non serializable python objects, the goal of this method is to manually serialize them to create 
@@ -185,18 +215,15 @@ class SearchCharacters(SearchContentType):
             characteristics_as_json = copy.deepcopy(characteristics)
             for characteristic in characteristics_as_json:
                 for code_key, code_value in characteristic['codes'].items():
-                    #Initially, the key of characteristics['codes']['annotations'].items is an 'TextContentXML' object, we're only keeping the title of the text 
+                    #Initially, the key of characteristics['codes']['annotations'].items is an 'TextContentXML' object, we're only keeping the title of the text stripped of whitespace
                     annotations_key_to_string = { k.text_content.text.title.strip() : v for k, v in code_value['annotations'].items()}
-                    if ("EV-ST" in code_key or "EV-REL" in code_key):
-                        for annotations_key_to_string_value in annotations_key_to_string.values():
-                            for annotation in annotations_key_to_string_value:
-                                if annotation['in_relation_with']:
-                                    #Initially, the value of characteristics['codes']['annotations'][Text]['in_relation_with'] is an 'BonhumStoryCharacter' object, we're manually serializing the object to a dictionnary of its value
-                                    annotation_value_to_string = [model_to_dict(x) for x in annotation['in_relation_with']]
-                                    annotation['in_relation_with'] = annotation_value_to_string
-                    if ('PROS-L' in code_key):
-                        for annotations_key_to_string_value in annotations_key_to_string.values():
-                            for annotation in annotations_key_to_string_value:
+                    for annotations_key_to_string_value in annotations_key_to_string.values():
+                        for annotation in annotations_key_to_string_value:
+                            if 'in_relation_with' in annotation:
+                                #Initially, the value of characteristics['codes']['annotations'][Text]['in_relation_with'] is an 'BonhumStoryCharacter' object, we're manually serializing the object to a dictionnary of its value
+                                annotation_value_to_string = [model_to_dict(x) for x in annotation['in_relation_with']]
+                                annotation['in_relation_with'] = annotation_value_to_string
+                            if 'place' in annotation:
                                 #Initially, the value of characteristics['codes']['annotations'][Text]['place'] is an 'BonhumStoryPlace' object, we're manually serializing the object to a dictionnary of its value
                                 annotation['place'] = model_to_dict(annotation['place'])
 
@@ -246,6 +273,8 @@ class SearchCharacters(SearchContentType):
                 'nb': 0
             })
 
+        author_judgements = {}
+
         # For each text_content_xml linked to the character
         for tcx in text_content_xmls.filter(content__isnull=False):
             soup = BeautifulSoup(tcx.content, 'lxml')
@@ -282,7 +311,7 @@ class SearchCharacters(SearchContentType):
             spans = persname_spans + place_spans + date_spans
             for span in spans:
                 position_percentage = self.get_temporal_marker(soup, span, text_len, tcx)
-
+                
                 url = tcx.get_absolute_url()
                 url += '?' if ('?' not in url) else '&'
                 url += 'annotation=%s' % span.attrs.get('data-dpt-id')
@@ -309,13 +338,15 @@ class SearchCharacters(SearchContentType):
             spans = rs_subject_spans + rs_object_spans
             for span in spans:
                 position_percentage = self.get_temporal_marker(soup, span, text_len, tcx)
-                
+                author_judgement = self.get_author_judgement(span)
+
                 url = tcx.get_absolute_url()
                 url += '?' if ('?' not in url) else '&'
                 url += 'annotation=%s' % span.attrs.get('data-dpt-id')
                 ana = span.attrs.get('data-dpt-ana')
                 ref = span.attrs.get('data-dpt-ref').split(' ')
                 content = span.get_text()
+
                 in_relation_with = []
                 is_object = False
                 if len(ref) > 1:
@@ -360,7 +391,8 @@ class SearchCharacters(SearchContentType):
                     if not is_object or code[:12] == '#PROS-EV-REL':
                         data = { 'content': content, 'url': url,
                                  'in_relation_with': in_relation_with,
-                                 'position_percentage' : position_percentage }
+                                 'position_percentage' : position_percentage,
+                                 'author_judgement' : author_judgement }
                         if code in ana_types:
                             data['level'] = level
                         for category in characteristics:
