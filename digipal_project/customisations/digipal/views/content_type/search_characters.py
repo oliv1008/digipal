@@ -200,10 +200,8 @@ class SearchCharacters(SearchContentType):
         
         direct_parent = list(content.parents)[1]
         if (direct_parent.name == "span"):
-            print("direct_parent : ", direct_parent.encode("utf-8"))
             author_judgement = re.findall("#BOC-[PAN]|#BOC-IRO|#BOC-NEU", direct_parent.encode("utf-8"))
             if (author_judgement):
-                print("author_judgement : ", author_judgement)
                 return author_judgement[0]
         
         return None
@@ -214,7 +212,7 @@ class SearchCharacters(SearchContentType):
     def get_characteristics_as_json(self, characteristics):
             characteristics_as_json = copy.deepcopy(characteristics)
             for characteristic in characteristics_as_json:
-                for code_key, code_value in characteristic['codes'].items():
+                for _, code_value in characteristic['codes'].items():
                     #Initially, the key of characteristics['codes']['annotations'].items is an 'TextContentXML' object, we're only keeping the title of the text stripped of whitespace
                     annotations_key_to_string = { k.text_content.text.title.strip() : v for k, v in code_value['annotations'].items()}
                     for annotations_key_to_string_value in annotations_key_to_string.values():
@@ -272,8 +270,6 @@ class SearchCharacters(SearchContentType):
                 'codes': codes,
                 'nb': 0
             })
-
-        author_judgements = {}
 
         # For each text_content_xml linked to the character
         for tcx in text_content_xmls.filter(content__isnull=False):

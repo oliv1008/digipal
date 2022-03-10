@@ -26,15 +26,39 @@ function onAnnotationSelected(button) {
     button.classList.add("active");
     annotationSelected = button.dataset.code;
     data = new Map;
+    updateTextSelectionButton();
     constructData();
 }
 
+// Disabled and deselect every text button for which its text doesn't contain any of the selected annotation 
 function updateTextSelectionButton() {
     let textButtons = document.querySelectorAll("button[data-type=text]");
     debugger;
     textButtons.forEach( textButton => {
-        if (characteristics_as_json[3].codes["#PROS-EV-PSY-BON"].annotations[textButton.dataset.title.trim()] && !characteristics_as_json[3].codes["#PROS-EV-PSY-MAL"].annotations[textButton.dataset.title.trim()])   {
-            console.log("aucune carac. pour le texte : ", textButton.dataset.title.trim());
+        switch (annotationSelected) {
+            case "PROS-EV-PSY":
+                if (!characteristics_as_json[3].codes["#PROS-EV-PSY-BON"].annotations[textButton.dataset.title.trim()] 
+                && !characteristics_as_json[3].codes["#PROS-EV-PSY-MAL"].annotations[textButton.dataset.title.trim()]) {
+                    if (textButton.classList.contains("active")) {
+                        textButton.classList.remove("active");
+                        textButton.classList.add("disabled");
+                        textButton.setAttribute("disabled", "true")
+                        let index = textsSelected.indexOf(textButton.dataset.title.trim());
+                        textsSelected.splice(index, 1);
+                        data.delete(textButton.dataset.title.trim());
+                    }
+                    else {
+                        textButton.classList.add("disabled");
+                        textButton.setAttribute("disabled", "true")
+                    }
+                }
+                else {
+                    if (textButton.classList.contains("disabled")) {
+                        textButton.classList.remove("disabled");
+                        textButton.setAttribute("disabled", "false");
+                    }
+                }
+            break;
         }
     });
 }
@@ -77,7 +101,7 @@ function constructData() {
                 //     "text5" : [{annotation_code, position, content, url}, ..., {annotation_code, position, content, url}]
                 // }
 
-                break;
+            break;
         }
     }
 
